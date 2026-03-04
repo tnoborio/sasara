@@ -1,0 +1,19 @@
+{:server
+ {:port #long #or [#env PORT 3000]
+  :host "0.0.0.0"}
+
+ :database
+ {:dbtype   "postgresql"
+  :host     #or [#env DB_HOST "localhost"]
+  :port     #long #or [#env DB_PORT 5432]
+  :dbname   #or [#env DB_NAME "sasara"]
+  :user     #or [#env DB_USER "tokusei"]
+  :password #or [#env DB_PASSWORD ""]}
+
+ :migratus
+ {:store         :database
+  :migration-dir "migrations"
+  :db            #ref [:database]}
+
+ :auth
+ {:session-secret #or [#env SESSION_SECRET "change-me-in-production-secret"]}}

@@ -1,0 +1,23 @@
+# Clojure
+.cpcache/
+.clj-kondo/.cache/
+.nrepl-port
+target/
+*.jar
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.calva/
+.lsp/.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config overrides
+config.local.edn
+
+# Uploads
+resources/public/uploads/

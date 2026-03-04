@@ -1,0 +1,17 @@
+DROP TABLE IF EXISTS post_tags;
+--;;
+DROP TABLE IF EXISTS tags;
+--;;
+DROP TABLE IF EXISTS media;
+--;;
+DROP TABLE IF EXISTS services;
+--;;
+DROP TABLE IF EXISTS works;
+--;;
+DROP TABLE IF EXISTS pages;
+--;;
+DROP TABLE IF EXISTS posts;
+--;;
+DROP TABLE IF EXISTS site_settings;
+--;;
+DROP TABLE IF EXISTS users;
