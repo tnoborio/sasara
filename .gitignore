@@ -21,3 +21,5 @@ config.local.edn
 
 # Uploads
 resources/public/uploads/
+
+CLAUDE.md
