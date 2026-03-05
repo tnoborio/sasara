@@ -5,8 +5,11 @@
             [sasara.view.public.blog :as blog-view]
             [ring.util.response :as response]))
 
-(defn home [_request]
-  (let [recent-posts (post/find-published {:limit 5})]
+(defn- site-id [request]
+  (get-in request [:current-site :id]))
+
+(defn home [request]
+  (let [recent-posts (post/find-published (site-id request) {:limit 5})]
     (-> (home-view/page {:recent-posts recent-posts})
         (response/response)
         (response/content-type "text/html; charset=utf-8"))))
@@ -16,17 +19,17 @@
       (response/response)
       (response/content-type "text/html; charset=utf-8")))
 
-(defn blog-index [_request]
-  (let [posts (post/find-published)]
+(defn blog-index [request]
+  (let [posts (post/find-published (site-id request))]
     (-> (blog-view/list-page {:posts posts})
         (response/response)
         (response/content-type "text/html; charset=utf-8"))))
 
 (defn blog-show [request]
   (let [slug (get-in request [:path-params :slug])
-        post (post/find-by-slug slug)]
-    (if (and post (= "published" (:status post)))
-      (-> (blog-view/show-page {:post post})
+        p    (post/find-by-slug (site-id request) slug)]
+    (if (and p (= "published" (:status p)))
+      (-> (blog-view/show-page {:post p})
           (response/response)
           (response/content-type "text/html; charset=utf-8"))
       (-> (response/not-found "Not Found")

@@ -7,8 +7,8 @@
   :host     #or [#env DB_HOST "localhost"]
   :port     #long #or [#env DB_PORT 5432]
   :dbname   #or [#env DB_NAME "sasara"]
-  :user     #or [#env DB_USER "tokusei"]
-  :password #or [#env DB_PASSWORD ""]}
+  :user     #or [#env DB_USER "sasara"]
+  :password #or [#env DB_PASSWORD "sasara"]}
 
  :migratus
  {:store         :database
@@ -16,4 +16,6 @@
   :db            #ref [:database]}
 
  :auth
- {:session-secret #or [#env SESSION_SECRET "change-me-in-production-secret"]}}
+ {:session-secret #or [#env SESSION_SECRET "change-me-in-production-secret"]}
+
+ :default-site-id #long #or [#env DEFAULT_SITE_ID 1]}

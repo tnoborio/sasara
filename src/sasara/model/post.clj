@@ -3,37 +3,38 @@
             [sasara.markdown :as md]))
 
 (defn find-all
-  "Get all posts, ordered by created_at desc."
-  ([]
-   (find-all {}))
-  ([{:keys [status limit offset]
-     :or   {limit 20 offset 0}}]
+  "Get all posts for a site, ordered by created_at desc."
+  ([site-id]
+   (find-all site-id {}))
+  ([site-id {:keys [status limit offset]
+             :or   {limit 20 offset 0}}]
    (if status
      (db/execute!
-      ["SELECT * FROM posts WHERE status = ?
+      ["SELECT * FROM posts WHERE site_id = ? AND status = ?
         ORDER BY created_at DESC LIMIT ? OFFSET ?"
-       status limit offset])
+       site-id status limit offset])
      (db/execute!
-      ["SELECT * FROM posts ORDER BY created_at DESC LIMIT ? OFFSET ?"
-       limit offset]))))
+      ["SELECT * FROM posts WHERE site_id = ?
+        ORDER BY created_at DESC LIMIT ? OFFSET ?"
+       site-id limit offset]))))
 
 (defn find-published
-  "Get published posts, ordered by published_at desc."
-  ([]
-   (find-published {}))
-  ([{:keys [limit offset] :or {limit 20 offset 0}}]
+  "Get published posts for a site, ordered by published_at desc."
+  ([site-id]
+   (find-published site-id {}))
+  ([site-id {:keys [limit offset] :or {limit 20 offset 0}}]
    (db/execute!
-    ["SELECT * FROM posts WHERE status = 'published'
+    ["SELECT * FROM posts WHERE site_id = ? AND status = 'published'
       ORDER BY published_at DESC LIMIT ? OFFSET ?"
-     limit offset])))
+     site-id limit offset])))
 
 (defn find-by-id [id]
   (db/execute-one!
    ["SELECT * FROM posts WHERE id = ?" id]))
 
-(defn find-by-slug [slug]
+(defn find-by-slug [site-id slug]
   (db/execute-one!
-   ["SELECT * FROM posts WHERE slug = ?" slug]))
+   ["SELECT * FROM posts WHERE site_id = ? AND slug = ?" site-id slug]))
 
 (defn- slugify [s]
   (-> s
@@ -43,15 +44,15 @@
       (clojure.string/replace #"-+" "-")))
 
 (defn create!
-  [{:keys [title slug content excerpt status author-id]
+  [{:keys [title slug content excerpt status author-id site-id]
     :or   {status "draft"}}]
   (let [slug         (or slug (slugify title))
         content-html (md/md->html content)]
     (db/execute-one!
-     ["INSERT INTO posts (title, slug, content, content_html, excerpt, status, author_id, published_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'published' THEN NOW() ELSE NULL END)
+     ["INSERT INTO posts (title, slug, content, content_html, excerpt, status, author_id, site_id, published_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'published' THEN NOW() ELSE NULL END)
        RETURNING *"
-      title slug content content-html excerpt status author-id status])))
+      title slug content content-html excerpt status author-id site-id status])))
 
 (defn update!
   [id {:keys [title slug content excerpt status]}]

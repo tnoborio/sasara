@@ -14,4 +14,8 @@ DROP TABLE IF EXISTS posts;
 --;;
 DROP TABLE IF EXISTS site_settings;
 --;;
+DROP TABLE IF EXISTS user_sites;
+--;;
 DROP TABLE IF EXISTS users;
+--;;
+DROP TABLE IF EXISTS sites;

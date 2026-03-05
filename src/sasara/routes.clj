@@ -19,15 +19,31 @@
 
      ;; Admin routes (auth required)
      ["/admin" {:middleware [auth/require-auth]}
-      ["" {:get admin/dashboard}]
+      ["" {:get admin/site-selector}]
+      ["/select-site/:id" {:post admin/select-site}]
+      ["/dashboard" {:get admin/dashboard}]
       ["/logout" {:post admin/logout}]
       ["/posts" {:get  admin/posts-index
                  :post admin/posts-create}]
       ["/posts/new" {:get admin/posts-new}]
       ["/posts/:id" {:get  admin/posts-edit
                      :post admin/posts-update}]
-      ["/posts/:id/delete" {:post admin/posts-delete}]]]
-    ;; Allow conflicting routes (e.g. /posts/new vs /posts/:id)
+      ["/posts/:id/delete" {:post admin/posts-delete}]
+
+      ;; Superadmin routes
+      ["/super" {:middleware [auth/require-superadmin]}
+       ["/sites" {:get  admin/super-sites-index
+                  :post admin/super-sites-create}]
+       ["/sites/new" {:get admin/super-sites-new}]
+       ["/sites/:id" {:get  admin/super-sites-edit
+                      :post admin/super-sites-update}]
+       ["/sites/:id/delete" {:post admin/super-sites-delete}]
+       ["/users" {:get  admin/super-users-index
+                  :post admin/super-users-create}]
+       ["/users/new" {:get admin/super-users-new}]
+       ["/users/:id" {:get  admin/super-users-edit
+                      :post admin/super-users-update}]
+       ["/users/:id/delete" {:post admin/super-users-delete}]]]]
     {:conflicts nil})
 
    ;; Default handler (static files + 404)

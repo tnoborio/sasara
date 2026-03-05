@@ -23,8 +23,9 @@
 
   ;; Start server
   (let [{:keys [port host]} server
+        default-site-id (:default-site-id config)
         handler (-> (routes/app-routes)
-                    middleware/wrap-base)]
+                    (middleware/wrap-base {:default-site-id default-site-id}))]
     (log/info (str "Starting Sasara on http://" host ":" port))
     (reset! sasara.core/server
             (jetty/run-jetty handler
