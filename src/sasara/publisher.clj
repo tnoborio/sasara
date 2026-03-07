@@ -1,53 +1,77 @@
 (ns sasara.publisher
   (:require [sasara.storage :as storage]
             [sasara.model.post :as post]
-            [sasara.view.public.home :as home-view]
-            [sasara.view.public.blog :as blog-view]
+            [sasara.model.page :as page]
+            [sasara.view.template :as template]
             [clojure.tools.logging :as log]))
 
-;; ── 個別ページ出力 ────────────────────────────────────────────────────
+;; ── Page output ───────────────────────────────────────────────────────
+
+(defn publish-page!
+  "Write a single page as an HTML file.
+   'home' slug → public/index.html; others → public/<slug>/index.html"
+  [stor site-id p]
+  (let [tmpl (template/resolve-template site-id)
+        html (template/render tmpl :render-page
+                              (template/build-ctx site-id {:page p}))
+        path (if (= "home" (:slug p))
+               "index.html"
+               (str (:slug p) "/index.html"))]
+    (storage/put-html! stor path html)))
+
+(defn publish-pages!
+  "Write all published pages for a site."
+  [stor site-id]
+  (doseq [p (page/find-published site-id)]
+    (publish-page! stor site-id p)))
+
+;; ── Blog output ───────────────────────────────────────────────────────
 
 (defn publish-post!
-  "単一記事をHTMLファイルとして出力する。
-   出力先: public/blog/<slug>/index.html"
-  [stor post]
-  (let [html (blog-view/show-page {:post post})]
-    (storage/put-html! stor (str "blog/" (:slug post) "/index.html") html)))
+  "Write a single post as an HTML file.
+   Output: public/blog/<slug>/index.html"
+  [stor site-id p]
+  (let [tmpl (template/resolve-template site-id)
+        html (template/render tmpl :render-blog-show
+                              (template/build-ctx site-id {:post p}))]
+    (storage/put-html! stor (str "blog/" (:slug p) "/index.html") html)))
 
 (defn publish-blog-index!
-  "ブログ一覧ページを出力する。
-   出力先: public/blog/index.html"
+  "Write the blog listing page.
+   Output: public/blog/index.html"
   [stor site-id]
   (let [posts (post/find-published site-id)
-        html  (blog-view/list-page {:posts posts})]
+        tmpl  (template/resolve-template site-id)
+        html  (template/render tmpl :render-blog-list
+                               (template/build-ctx site-id {:posts posts}))]
     (storage/put-html! stor "blog/index.html" html)))
 
-(defn publish-home!
-  "トップページを出力する。
-   出力先: public/index.html"
-  [stor site-id]
-  (let [recent-posts (post/find-published site-id {:limit 5})
-        html         (home-view/page {:recent-posts recent-posts})]
-    (storage/put-html! stor "index.html" html)))
-
-;; ── 全体パブリッシュ ──────────────────────────────────────────────────
+;; ── Full publish ──────────────────────────────────────────────────────
 
 (defn publish-site!
-  "サイト全体の静的HTMLを生成・出力する。"
+  "Generate and write static HTML for the entire site."
   [stor site-id]
   (log/info (str "Publishing site " site-id "..."))
-  (publish-home! stor site-id)
+  (publish-pages! stor site-id)
   (publish-blog-index! stor site-id)
   (doseq [p (post/find-published site-id)]
-    (publish-post! stor p))
+    (publish-post! stor site-id p))
   (log/info "Publishing complete."))
 
-;; ── 増分パブリッシュ（記事作成・更新時に呼ぶ） ────────────────────────
+;; ── Incremental publish (called on save) ─────────────────────────────
 
 (defn on-post-save!
-  "記事保存後に呼び出す。publishedなら関連ページを再生成する。"
-  [stor site-id post]
-  (when (= "published" (:status post))
-    (publish-post! stor post)
+  "Called after a post is saved. Regenerates related pages if published."
+  [stor site-id p]
+  (when (= "published" (:status p))
+    (publish-post! stor site-id p)
     (publish-blog-index! stor site-id)
-    (publish-home! stor site-id)))
+    ;; Regenerate home page if it exists (latest post list may have changed)
+    (when-let [home (page/find-by-slug site-id "home")]
+      (publish-page! stor site-id home))))
+
+(defn on-page-save!
+  "Called after a page is saved. Regenerates the static file if published."
+  [stor site-id p]
+  (when (= "published" (:status p))
+    (publish-page! stor site-id p)))

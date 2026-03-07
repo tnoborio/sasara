@@ -3,10 +3,11 @@
             [clojure.tools.logging :as log]))
 
 (defprotocol Storage
-  (put-html! [this path html])
-  (delete-html! [this path]))
+  (put-html!   [this path html])
+  (delete-html! [this path])
+  (put-image!  [this rel-path input-stream]))
 
-;; ── ローカルファイルシステム ──────────────────────────────────────────
+;; ── Local filesystem ─────────────────────────────────────────────────
 
 (defrecord LocalStorage [base-path]
   Storage
@@ -19,30 +20,35 @@
     (let [file (io/file base-path path)]
       (when (.exists file)
         (.delete file)
-        (log/debug (str "Deleted: " (.getPath file)))))))
+        (log/debug (str "Deleted: " (.getPath file))))))
+  (put-image! [_ rel-path input-stream]
+    (let [file (io/file base-path rel-path)]
+      (io/make-parents file)
+      (io/copy input-stream file)
+      (log/debug (str "Image written: " (.getPath file))))))
 
-;; ── ファクトリ ────────────────────────────────────────────────────────
+;; ── Factory ───────────────────────────────────────────────────────────
 
 (defn create-storage
-  "設定からStorageインスタンスを生成する。
+  "Create a Storage instance from config.
    :type :local → LocalStorage
-   :type :gcs   → GCSStorage（未実装）"
+   :type :gcs   → GCSStorage (not yet implemented)"
   [{:keys [type path] :or {type :local path "public"}}]
   (case (keyword type)
     :local (->LocalStorage path)
     (->LocalStorage path)))
 
-;; ── グローバル状態 ────────────────────────────────────────────────────
+;; ── Global state ──────────────────────────────────────────────────────
 
 (defonce ^:private state (atom nil))
 
 (defn init!
-  "アプリ起動時にStorageを初期化する。"
+  "Initialize storage at application startup."
   [config]
   (reset! state (create-storage config))
   (log/info (str "Storage initialized: " (:type config) " → " (:path config))))
 
 (defn get-storage
-  "現在のStorageインスタンスを返す。"
+  "Return the current Storage instance."
   []
   @state)

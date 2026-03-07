@@ -65,7 +65,7 @@
                  :checked (:is-superadmin user)
                  :class "rounded border-gray-300"}]
         "Superadmin"]]
-      ;; サイト割り当て
+      ;; Site assignments
       (when (seq sites)
         [:div
          [:label {:class "block text-sm font-medium text-gray-700 mb-2"} "Site Assignments"]

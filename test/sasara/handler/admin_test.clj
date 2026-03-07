@@ -63,7 +63,7 @@
         (is (= "/admin/dashboard" (get-in res [:headers "Location"])))
         (is (= (get-in ctx [:site :id])
                (get-in res [:session :current-site-id])))
-        ;; identity が保持されていること
+        ;; identity should be preserved in session
         (is (some? (get-in res [:session :identity])))))))
 
 (deftest dashboard-test

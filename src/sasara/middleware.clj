@@ -7,7 +7,7 @@
             [sasara.model.user-site :as user-site]))
 
 (defn wrap-current-site
-  "管理画面用: セッションの site-id からサイト情報とロールをリクエストに注入"
+  "Admin panel: inject site info and role from session site-id into request."
   [handler]
   (fn [request]
     (let [site-id (get-in request [:session :current-site-id])
@@ -21,12 +21,12 @@
         (handler request)))))
 
 (defn wrap-resolve-site
-  "公開サイト用: ドメインまたはデフォルト設定からサイトを解決"
+  "Public site: resolve site from request domain or fall back to default."
   [default-site-id]
   (fn [handler]
     (fn [request]
       (let [host    (get-in request [:headers "host"])
-            ;; ドメインからサイトを検索、見つからなければデフォルト
+            ;; Look up site by domain; fall back to default if not found
             current-site (or (when host (site/find-by-domain host))
                              (when default-site-id (site/find-by-id default-site-id)))]
         (handler (assoc request :current-site current-site))))))

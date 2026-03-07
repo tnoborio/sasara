@@ -1,36 +1,42 @@
 (ns sasara.handler.public
   (:require [sasara.model.post :as post]
-            [sasara.view.public.home :as home-view]
-            [sasara.view.public.about :as about-view]
-            [sasara.view.public.blog :as blog-view]
+            [sasara.model.page :as page]
+            [sasara.view.template :as template]
             [ring.util.response :as response]))
 
 (defn- site-id [request]
   (get-in request [:current-site :id]))
 
-(defn home [request]
-  (let [recent-posts (post/find-published (site-id request) {:limit 5})]
-    (-> (home-view/page {:recent-posts recent-posts})
-        (response/response)
-        (response/content-type "text/html; charset=utf-8"))))
-
-(defn about [_request]
-  (-> (about-view/page {})
-      (response/response)
+(defn- html [body]
+  (-> (response/response body)
       (response/content-type "text/html; charset=utf-8")))
 
+(defn home [request]
+  (let [sid  (site-id request)
+        tmpl (template/resolve-template sid)
+        p    (page/find-by-slug sid "home")]
+    (if (and p (= "published" (:status p)))
+      (html (template/render tmpl :render-page
+                             (template/build-ctx sid {:page p})))
+      ;; No home page found: render site name + latest posts
+      (let [posts (post/find-published sid)]
+        (html (template/render tmpl :render-home
+                               (template/build-ctx sid {:posts posts})))))))
+
 (defn blog-index [request]
-  (let [posts (post/find-published (site-id request))]
-    (-> (blog-view/list-page {:posts posts})
-        (response/response)
-        (response/content-type "text/html; charset=utf-8"))))
+  (let [sid   (site-id request)
+        posts (post/find-published sid)
+        tmpl  (template/resolve-template sid)]
+    (html (template/render tmpl :render-blog-list
+                           (template/build-ctx sid {:posts posts})))))
 
 (defn blog-show [request]
-  (let [slug (get-in request [:path-params :slug])
-        p    (post/find-by-slug (site-id request) slug)]
+  (let [sid  (site-id request)
+        slug (get-in request [:path-params :slug])
+        p    (post/find-by-slug sid slug)
+        tmpl (template/resolve-template sid)]
     (if (and p (= "published" (:status p)))
-      (-> (blog-view/show-page {:post p})
-          (response/response)
-          (response/content-type "text/html; charset=utf-8"))
-      (-> (response/not-found "Not Found")
-          (response/content-type "text/html; charset=utf-8")))))
+      (html (template/render tmpl :render-blog-show
+                             (template/build-ctx sid {:post p})))
+      (html (template/render tmpl :render-not-found
+                             (template/build-ctx sid {}))))))

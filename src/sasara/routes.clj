@@ -8,9 +8,8 @@
 (defn app-routes []
   (-> (ring/ring-handler
    (ring/router
-    [;; Public routes
+    [;; Public routes (SSR fallback when no static file exists)
      ["/" {:get public/home}]
-     ["/about" {:get public/about}]
      ["/blog" {:get public/blog-index}]
      ["/blog/:slug" {:get public/blog-show}]
 
@@ -31,7 +30,16 @@
       ["/posts/:id" {:get  admin/posts-edit
                      :post admin/posts-update}]
       ["/posts/:id/delete" {:post admin/posts-delete}]
-      ["/pages" {:get admin/pages-index}]
+      ["/pages" {:get  admin/pages-index
+                 :post admin/pages-create}]
+      ["/pages/new" {:get admin/pages-new}]
+      ["/pages/:id" {:get  admin/pages-edit
+                     :post admin/pages-update}]
+      ["/pages/:id/delete" {:post admin/pages-delete}]
+      ["/media" {:get  admin/media-index}]
+      ["/media/upload" {:post admin/media-upload}]
+      ["/media/picker" {:get admin/media-picker}]
+      ["/media/:id/delete" {:post admin/media-delete}]
       ["/settings" {:get  admin/settings-index
                     :post admin/settings-update}]
 

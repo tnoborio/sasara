@@ -3,7 +3,7 @@
             [hiccup.page :refer [doctype]]))
 
 (defn sidebar
-  "Admin sidebar. super? で superadmin 用ナビを表示"
+  "Admin sidebar. Shows superadmin nav when super? is true."
   [{:keys [site-name super?]}]
   [:aside {:class "w-56 bg-gray-900 text-white min-h-screen p-4"}
    [:div {:class "text-lg font-bold mb-2"} "Sasara Admin"]
@@ -13,17 +13,18 @@
      [:div {:class "mb-6"}])
    [:nav {:class "space-y-2 text-sm"}
     (if super?
-      ;; Superadmin ナビ
+      ;; Superadmin nav
       (list
        [:a {:href "/admin/super/sites" :class "block px-3 py-2 rounded hover:bg-gray-800"} "Sites"]
        [:a {:href "/admin/super/users" :class "block px-3 py-2 rounded hover:bg-gray-800"} "Users"]
        [:hr {:class "border-gray-700 my-4"}]
        [:a {:href "/admin" :class "block px-3 py-2 rounded hover:bg-gray-800"} "← Site Selector"])
-      ;; サイト管理ナビ
+      ;; Site management nav
       (list
        [:a {:href "/admin/dashboard" :class "block px-3 py-2 rounded hover:bg-gray-800"} "Dashboard"]
        [:a {:href "/admin/posts" :class "block px-3 py-2 rounded hover:bg-gray-800"} "Posts"]
        [:a {:href "/admin/pages" :class "block px-3 py-2 rounded hover:bg-gray-800"} "Pages"]
+       [:a {:href "/admin/media" :class "block px-3 py-2 rounded hover:bg-gray-800"} "Media"]
        [:a {:href "/admin/settings" :class "block px-3 py-2 rounded hover:bg-gray-800"} "Settings"]
        [:hr {:class "border-gray-700 my-4"}]
        [:a {:href "/admin" :class "block px-3 py-2 rounded hover:bg-gray-800"} "← Switch Site"]

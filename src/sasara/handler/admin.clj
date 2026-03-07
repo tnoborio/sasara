@@ -1,16 +1,25 @@
 (ns sasara.handler.admin
   (:require [sasara.model.post :as post]
+            [sasara.model.page :as page]
+            [sasara.model.media :as media]
             [sasara.model.user :as user]
             [sasara.model.site :as site]
             [sasara.model.user-site :as user-site]
             [sasara.view.admin.posts :as posts-view]
+            [sasara.view.admin.pages :as pages-view]
+            [sasara.view.admin.media :as media-view]
             [sasara.view.admin.layout :as admin-layout]
             [sasara.view.admin.site-selector :as site-selector-view]
+            [sasara.view.admin.settings :as settings-view]
             [sasara.view.admin.super.sites :as super-sites-view]
             [sasara.view.admin.super.users :as super-users-view]
             [sasara.publisher :as publisher]
             [sasara.storage :as storage]
-            [ring.util.response :as response]))
+            [sasara.model.setting :as setting]
+            [ring.util.response :as response]
+            [clojure.string :as str]
+            [clojure.java.io :as io])
+  (:import [java.util UUID]))
 
 (defn- html-response [body]
   (-> (response/response body)
@@ -48,7 +57,7 @@
   (let [user-id      (get-in request [:session :identity :id])
         is-super     (get-in request [:session :identity :is-superadmin])
         sites        (user-site/find-sites-for-user user-id)]
-    ;; superadmin で1サイトもなければ super admin 画面へ
+    ;; Superadmin with no sites assigned: redirect to super admin panel
     (if (and is-super (empty? sites))
       (response/redirect "/admin/super/sites")
       (html-response
@@ -96,8 +105,10 @@
      (posts-view/list-page {:posts posts :site-name (site-name request)}))))
 
 (defn posts-new [request]
-  (html-response
-   (posts-view/form-page {:post nil :site-name (site-name request)})))
+  (let [site-id (current-site-id request)]
+    (html-response
+     (posts-view/form-page {:post nil :site-name (site-name request)
+                            :media (media/find-all site-id)}))))
 
 (defn posts-create [request]
   (let [{:strs [title slug content excerpt status]} (:form-params request)
@@ -114,11 +125,13 @@
     (response/redirect "/admin/posts")))
 
 (defn posts-edit [request]
-  (let [id   (parse-long (get-in request [:path-params :id]))
-        p    (post/find-by-id id)]
+  (let [id      (parse-long (get-in request [:path-params :id]))
+        site-id (current-site-id request)
+        p       (post/find-by-id id)]
     (if p
       (html-response
-       (posts-view/form-page {:post p :site-name (site-name request)}))
+       (posts-view/form-page {:post p :site-name (site-name request)
+                              :media (media/find-all site-id)}))
       (response/not-found "Post not found"))))
 
 (defn posts-update [request]
@@ -146,21 +159,127 @@
 ;; --- Pages ---
 
 (defn pages-index [request]
-  (html-response
-   (admin-layout/admin-layout
-    {:title "Pages" :site-name (site-name request)}
-    [:p {:class "text-gray-500"} "ページ管理は準備中です。"])))
+  (let [site-id (current-site-id request)
+        pages   (page/find-all site-id)]
+    (html-response
+     (pages-view/list-page {:pages pages :site-name (site-name request)}))))
+
+(defn pages-new [request]
+  (let [site-id (current-site-id request)]
+    (html-response
+     (pages-view/form-page {:page nil :site-name (site-name request)
+                            :media (media/find-all site-id)}))))
+
+(defn pages-create [request]
+  (let [{:strs [title slug content excerpt status sort-order]} (:form-params request)
+        site-id (current-site-id request)
+        saved   (page/create! {:title      title
+                               :slug       slug
+                               :content    content
+                               :excerpt    excerpt
+                               :status     status
+                               :sort-order (when sort-order (parse-long sort-order))
+                               :site-id    site-id})]
+    (publisher/on-page-save! (storage/get-storage) site-id saved)
+    (response/redirect "/admin/pages")))
+
+(defn pages-edit [request]
+  (let [id      (parse-long (get-in request [:path-params :id]))
+        site-id (current-site-id request)
+        p       (page/find-by-id id)]
+    (if p
+      (html-response
+       (pages-view/form-page {:page p :site-name (site-name request)
+                              :media (media/find-all site-id)}))
+      (response/not-found "Page not found"))))
+
+(defn pages-update [request]
+  (let [id      (parse-long (get-in request [:path-params :id]))
+        site-id (current-site-id request)
+        {:strs [title slug content excerpt status sort-order]} (:form-params request)
+        saved   (page/update! id {:title      title
+                                  :slug       slug
+                                  :content    content
+                                  :excerpt    excerpt
+                                  :status     status
+                                  :sort-order (when sort-order (parse-long sort-order))})]
+    (publisher/on-page-save! (storage/get-storage) site-id saved)
+    (response/redirect "/admin/pages")))
+
+(defn pages-delete [request]
+  (let [id (parse-long (get-in request [:path-params :id]))]
+    (page/delete! id)
+    (response/redirect "/admin/pages")))
+
+;; --- Media ---
+
+(defn- ext-from-content-type [content-type]
+  (case content-type
+    "image/jpeg"    ".jpg"
+    "image/png"     ".png"
+    "image/gif"     ".gif"
+    "image/webp"    ".webp"
+    "image/svg+xml" ".svg"
+    ".bin"))
+
+(defn media-index [request]
+  (let [site-id (current-site-id request)
+        items   (media/find-all site-id)]
+    (html-response
+     (media-view/list-page {:media items :site-name (site-name request)}))))
+
+(defn media-upload [request]
+  (let [site-id    (current-site-id request)
+        user-id    (get-in request [:session :identity :id])
+        file-param (get-in request [:params "file"])
+        alt-text   (get-in request [:params "alt-text"])
+        {:keys [tempfile filename content-type size]} file-param
+        ext        (ext-from-content-type content-type)
+        uuid-name  (str (UUID/randomUUID) ext)
+        rel-path   (str "uploads/" site-id "/" uuid-name)
+        public-url (str "/" rel-path)]
+    (storage/put-image! (storage/get-storage) rel-path (io/input-stream tempfile))
+    (media/create! {:site-id       site-id
+                    :filename      uuid-name
+                    :original-name filename
+                    :content-type  content-type
+                    :size-bytes    size
+                    :url           public-url
+                    :alt-text      (when-not (str/blank? alt-text) alt-text)
+                    :uploaded-by   user-id})
+    (response/redirect "/admin/media")))
+
+(defn media-delete [request]
+  (let [id      (parse-long (get-in request [:path-params :id]))
+        deleted (media/delete! id)]
+    (when-let [url (:url deleted)]
+      (let [file (io/file (str "public" url))]
+        (when (.exists file) (.delete file))))
+    (response/redirect "/admin/media")))
+
+(defn media-picker [request]
+  (let [site-id (current-site-id request)
+        items   (media/find-all site-id)]
+    (-> (response/response (media-view/picker-page {:media items}))
+        (response/content-type "text/html; charset=utf-8"))))
 
 ;; --- Settings ---
 
 (defn settings-index [request]
-  (html-response
-   (admin-layout/admin-layout
-    {:title "Settings" :site-name (site-name request)}
-    [:p {:class "text-gray-500"} "サイト設定は準備中です。"])))
+  (let [site-id (current-site-id request)]
+    (html-response
+     (settings-view/settings-page
+      {:site-name        (setting/get-setting site-id "site-name")
+       :current-template (setting/get-setting site-id "template")}))))
 
-(defn settings-update [_request]
-  (response/redirect "/admin/settings"))
+(defn settings-update [request]
+  (let [site-id  (current-site-id request)
+        {:strs [site-name template]} (:form-params request)]
+    (when-not (empty? site-name)
+      (setting/set-setting! site-id "site-name" site-name))
+    (when-not (empty? template)
+      (setting/set-setting! site-id "template" template))
+    (response/redirect "/admin/settings")))
 
 ;; --- Superadmin: Sites ---
 
@@ -213,7 +332,7 @@
                                 :user-sites []})))
 
 (defn- parse-site-assignments
-  "フォームパラメータからサイト割り当てを解析"
+  "Parse site role assignments from form params."
   [form-params sites]
   (for [{:keys [id]} sites
         :let [checked (get form-params (str "site-" id))
@@ -252,12 +371,12 @@
         {:strs [username email password is-superadmin]} (:form-params request)
         sites       (site/find-all)
         assignments (parse-site-assignments (:form-params request) sites)]
-    ;; ユーザー情報更新
+    ;; Update user info
     (user/update! id {:username      username
                       :email         email
                       :password      password
                       :is-superadmin (= is-superadmin "true")})
-    ;; サイト割り当て更新: 全削除→再追加
+    ;; Update site assignments: delete all then re-add
     (doseq [{site-id :id} sites]
       (user-site/remove-user! id site-id))
     (doseq [{:keys [site-id role]} assignments]
