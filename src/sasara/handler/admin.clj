@@ -8,6 +8,8 @@
             [sasara.view.admin.site-selector :as site-selector-view]
             [sasara.view.admin.super.sites :as super-sites-view]
             [sasara.view.admin.super.users :as super-users-view]
+            [sasara.publisher :as publisher]
+            [sasara.storage :as storage]
             [ring.util.response :as response]))
 
 (defn- html-response [body]
@@ -100,14 +102,15 @@
 (defn posts-create [request]
   (let [{:strs [title slug content excerpt status]} (:form-params request)
         author-id (get-in request [:session :identity :id])
-        site-id   (current-site-id request)]
-    (post/create! {:title     title
-                   :slug      (when-not (empty? slug) slug)
-                   :content   content
-                   :excerpt   excerpt
-                   :status    status
-                   :author-id author-id
-                   :site-id   site-id})
+        site-id   (current-site-id request)
+        saved     (post/create! {:title     title
+                                 :slug      (when-not (empty? slug) slug)
+                                 :content   content
+                                 :excerpt   excerpt
+                                 :status    status
+                                 :author-id author-id
+                                 :site-id   site-id})]
+    (publisher/on-post-save! (storage/get-storage) site-id saved)
     (response/redirect "/admin/posts")))
 
 (defn posts-edit [request]
@@ -119,19 +122,45 @@
       (response/not-found "Post not found"))))
 
 (defn posts-update [request]
-  (let [id (parse-long (get-in request [:path-params :id]))
-        {:strs [title slug content excerpt status]} (:form-params request)]
-    (post/update! id {:title   title
-                      :slug    slug
-                      :content content
-                      :excerpt excerpt
-                      :status  status})
+  (let [id      (parse-long (get-in request [:path-params :id]))
+        site-id (current-site-id request)
+        {:strs [title slug content excerpt status]} (:form-params request)
+        saved   (post/update! id {:title   title
+                                  :slug    slug
+                                  :content content
+                                  :excerpt excerpt
+                                  :status  status})]
+    (publisher/on-post-save! (storage/get-storage) site-id saved)
     (response/redirect "/admin/posts")))
+
+(defn publish-all [request]
+  (let [site-id (current-site-id request)]
+    (publisher/publish-site! (storage/get-storage) site-id)
+    (response/redirect "/admin/dashboard")))
 
 (defn posts-delete [request]
   (let [id (parse-long (get-in request [:path-params :id]))]
     (post/delete! id)
     (response/redirect "/admin/posts")))
+
+;; --- Pages ---
+
+(defn pages-index [request]
+  (html-response
+   (admin-layout/admin-layout
+    {:title "Pages" :site-name (site-name request)}
+    [:p {:class "text-gray-500"} "ページ管理は準備中です。"])))
+
+;; --- Settings ---
+
+(defn settings-index [request]
+  (html-response
+   (admin-layout/admin-layout
+    {:title "Settings" :site-name (site-name request)}
+    [:p {:class "text-gray-500"} "サイト設定は準備中です。"])))
+
+(defn settings-update [_request]
+  (response/redirect "/admin/settings"))
 
 ;; --- Superadmin: Sites ---
 

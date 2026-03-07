@@ -18,4 +18,8 @@
  :auth
  {:session-secret #or [#env SESSION_SECRET "change-me-in-production-secret"]}
 
- :default-site-id #long #or [#env DEFAULT_SITE_ID 1]}
+ :default-site-id #long #or [#env DEFAULT_SITE_ID 1]
+
+ :storage
+ {:type :local
+  :path #or [#env STATIC_OUTPUT_PATH "public"]}}

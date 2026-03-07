@@ -2,6 +2,7 @@
   (:require [ring.adapter.jetty :as jetty]
             [sasara.config :as config]
             [sasara.db :as db]
+            [sasara.storage :as storage]
             [sasara.routes :as routes]
             [sasara.middleware :as middleware]
             [migratus.core :as migratus]
@@ -16,6 +17,10 @@
   ;; Initialize database
   (log/info "Initializing database connection...")
   (db/init! database)
+
+  ;; Initialize storage
+  (log/info "Initializing storage...")
+  (storage/init! (:storage config))
 
   ;; Run migrations
   (log/info "Running database migrations...")

@@ -2,11 +2,19 @@
   (:require [sasara.core :as core]
             [sasara.config :as config]
             [sasara.db :as db]
+            [sasara.storage :as storage]
+            [sasara.publisher :as publisher]
             [sasara.model.user :as user-model]
             [sasara.model.post :as post-model]
             [sasara.model.site :as site-model]
             [sasara.model.user-site :as user-site-model]
             [migratus.core :as migratus]))
+
+(defn- ensure-db!
+  "DB未初期化なら config から初期化する（start! なしで呼べるようにするため）。"
+  []
+  (when-not (db/ds)
+    (db/init! (:database (config/load-config)))))
 
 (defn start!
   "Start the server from REPL."
@@ -29,17 +37,20 @@
   "Run pending migrations."
   []
   (let [cfg (config/load-config)]
+    (ensure-db!)
     (migratus/migrate (:migratus cfg))))
 
 (defn rollback!
   "Rollback last migration."
   []
   (let [cfg (config/load-config)]
+    (ensure-db!)
     (migratus/rollback (:migratus cfg))))
 
 (defn seed!
   "Create initial superadmin user, default site, and sample data."
   []
+  (ensure-db!)
   ;; デフォルトサイト作成
   (println "Creating default site...")
   (let [site (site-model/create! {:name   "My Site"
@@ -71,6 +82,17 @@
                             :site-id   site-id})))
   (println "Seed complete! Login with: admin / admin"))
 
+(defn publish!
+  "サイト全体の静的HTMLをpublic/に生成する。サーバー起動中でも単独でも動作する。"
+  ([]
+   (let [cfg (config/load-config)]
+     (publish! (:default-site-id cfg))))
+  ([site-id]
+   (let [cfg  (config/load-config)
+         stor (or (storage/get-storage)
+                  (storage/create-storage (:storage cfg)))]
+     (publisher/publish-site! stor site-id))))
+
 (comment
   ;; Quick start:
   (start!)        ; Start server on http://localhost:3000
@@ -78,6 +100,7 @@
   (restart!)      ; Restart
   (migrate!)      ; Run migrations
   (seed!)         ; Create superadmin + default site + sample posts
+  (publish!)      ; 静的HTML全生成 → public/
 
   ;; Login with: admin / admin
   ;; Admin panel: http://localhost:3000/admin

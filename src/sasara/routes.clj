@@ -2,10 +2,11 @@
   (:require [reitit.ring :as ring]
             [sasara.handler.public :as public]
             [sasara.handler.admin :as admin]
-            [sasara.auth :as auth]))
+            [sasara.auth :as auth]
+            [ring.middleware.file :as file]))
 
 (defn app-routes []
-  (ring/ring-handler
+  (-> (ring/ring-handler
    (ring/router
     [;; Public routes
      ["/" {:get public/home}]
@@ -23,12 +24,16 @@
       ["/select-site/:id" {:post admin/select-site}]
       ["/dashboard" {:get admin/dashboard}]
       ["/logout" {:post admin/logout}]
+      ["/publish" {:post admin/publish-all}]
       ["/posts" {:get  admin/posts-index
                  :post admin/posts-create}]
       ["/posts/new" {:get admin/posts-new}]
       ["/posts/:id" {:get  admin/posts-edit
                      :post admin/posts-update}]
       ["/posts/:id/delete" {:post admin/posts-delete}]
+      ["/pages" {:get admin/pages-index}]
+      ["/settings" {:get  admin/settings-index
+                    :post admin/settings-update}]
 
       ;; Superadmin routes
       ["/super" {:middleware [auth/require-superadmin]}
@@ -53,4 +58,5 @@
     (ring/create-default-handler
      {:not-found (constantly {:status 404
                               :headers {"Content-Type" "text/html"}
-                              :body "<h1>404 Not Found</h1>"})}))))
+                              :body "<h1>404 Not Found</h1>"})})))
+      (file/wrap-file "public")))

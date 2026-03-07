@@ -22,4 +22,7 @@ config.local.edn
 # Uploads
 resources/public/uploads/
 
+# Generated static files (publish! の出力先)
+public/
+
 CLAUDE.md
